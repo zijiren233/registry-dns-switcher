@@ -1,0 +1,6 @@
+Registry DNS Switcher has been installed.
+
+Dry-run is currently set to {{ .Values.run.dryRun }}.
+
+View logs:
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "registry-dns-switcher.fullname" . }}

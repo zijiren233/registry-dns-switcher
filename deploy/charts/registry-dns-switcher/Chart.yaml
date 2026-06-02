@@ -1,0 +1,13 @@
+apiVersion: v2
+name: registry-dns-switcher
+description: Switch registry DNS records to the highest-priority healthy IP from VictoriaMetrics
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - dns
+  - registry
+  - victoriametrics
+  - monitoring
+maintainers:
+  - name: sealos

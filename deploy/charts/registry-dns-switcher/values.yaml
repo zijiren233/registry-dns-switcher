@@ -1,0 +1,91 @@
+image: ghcr.io/labring/registry-dns-switcher:latest
+imagePullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+run:
+  interval: 30s
+  dryRun: true
+  once: false
+
+switchPolicy:
+  unhealthyFor: 2m
+  healthyFor: 5m
+
+victoriaMetrics:
+  url: http://victoria-metrics.monitoring.svc:8428
+  queryPath: /api/v1/query
+  timeout: 10s
+  metricName: sealos_registry_proxy_status
+  matchers: {}
+
+registry:
+  endpoint: https://registry-proxy.example.com:5443
+  info: ""
+  repository: library/busybox
+  reference: latest
+
+targets:
+  - ip: 10.0.0.12
+    priority: 100
+  - ip: 10.0.0.13
+    priority: 90
+
+dns:
+  provider: fake
+  recordName: registry-proxy.example.com
+  ttl: 60
+  fake:
+    records:
+      registry-proxy.example.com/A: 10.0.0.99
+  cloudflare:
+    proxied: false
+  alidns:
+    regionId: cn-hangzhou
+    domainName: example.com
+    rr: registry-proxy
+
+secret:
+  create: true
+  existingSecret: ""
+  victoriaMetrics:
+    bearerToken: ""
+    basicAuth:
+      username: ""
+      password: ""
+  cloudflare:
+    apiToken: ""
+    zoneId: ""
+  alidns:
+    accessKeyId: ""
+    accessKeySecret: ""

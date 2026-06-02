@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "registry-dns-switcher.fullname" . }}
+  labels:
+    {{- include "registry-dns-switcher.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    run:
+      interval: {{ .Values.run.interval | quote }}
+      dryRun: {{ .Values.run.dryRun }}
+      once: {{ .Values.run.once }}
+    switchPolicy:
+      unhealthyFor: {{ .Values.switchPolicy.unhealthyFor | quote }}
+      healthyFor: {{ .Values.switchPolicy.healthyFor | quote }}
+    victoriaMetrics:
+      url: {{ .Values.victoriaMetrics.url | quote }}
+      queryPath: {{ .Values.victoriaMetrics.queryPath | quote }}
+      timeout: {{ .Values.victoriaMetrics.timeout | quote }}
+      metricName: {{ .Values.victoriaMetrics.metricName | quote }}
+      bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}
+      basicAuth:
+        username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
+        password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
+      matchers:
+        {{- toYaml .Values.victoriaMetrics.matchers | nindent 8 }}
+    registry:
+      endpoint: {{ .Values.registry.endpoint | quote }}
+      info: {{ .Values.registry.info | quote }}
+      repository: {{ .Values.registry.repository | quote }}
+      reference: {{ .Values.registry.reference | quote }}
+    targets:
+      {{- toYaml .Values.targets | nindent 6 }}
+    dns:
+      provider: {{ .Values.dns.provider | quote }}
+      recordName: {{ .Values.dns.recordName | quote }}
+      ttl: {{ .Values.dns.ttl }}
+      fake:
+        records:
+          {{- toYaml .Values.dns.fake.records | nindent 10 }}
+      cloudflare:
+        apiToken: ${CLOUDFLARE_API_TOKEN}
+        zoneId: ${CLOUDFLARE_ZONE_ID}
+        proxied: {{ .Values.dns.cloudflare.proxied }}
+      alidns:
+        regionId: {{ .Values.dns.alidns.regionId | quote }}
+        accessKeyId: ${ALIYUN_ACCESS_KEY_ID}
+        accessKeySecret: ${ALIYUN_ACCESS_KEY_SECRET}
+        domainName: {{ .Values.dns.alidns.domainName | quote }}
+        rr: {{ .Values.dns.alidns.rr | quote }}

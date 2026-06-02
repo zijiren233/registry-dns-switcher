@@ -1,0 +1,7 @@
+.git/
+.github/
+.DS_Store
+README.md
+Dockerfile
+go.mod
+go.sum
