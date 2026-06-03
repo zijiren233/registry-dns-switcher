@@ -29,16 +29,19 @@ type RunConfig struct {
 type SwitchPolicyConfig struct {
 	UnhealthyFor time.Duration `yaml:"unhealthyFor"`
 	HealthyFor   time.Duration `yaml:"healthyFor"`
+	TieBreaker   string        `yaml:"tieBreaker"`
 }
 
 type VictoriaMetricsConfig struct {
-	URL         string            `yaml:"url"`
-	QueryPath   string            `yaml:"queryPath"`
-	Timeout     time.Duration     `yaml:"timeout"`
-	BearerToken string            `yaml:"bearerToken"`
-	BasicAuth   BasicAuthConfig   `yaml:"basicAuth"`
-	MetricName  string            `yaml:"metricName"`
-	Matchers    map[string]string `yaml:"matchers"`
+	URL               string            `yaml:"url"`
+	QueryPath         string            `yaml:"queryPath"`
+	Timeout           time.Duration     `yaml:"timeout"`
+	BearerToken       string            `yaml:"bearerToken"`
+	BasicAuth         BasicAuthConfig   `yaml:"basicAuth"`
+	MetricName        string            `yaml:"metricName"`
+	LatencyMetricName string            `yaml:"latencyMetricName"`
+	LatencyMatchers   map[string]string `yaml:"latencyMatchers"`
+	Matchers          map[string]string `yaml:"matchers"`
 }
 
 type BasicAuthConfig struct {
@@ -180,6 +183,12 @@ func applyDefaults(cfg *Config) {
 	if cfg.VictoriaMetrics.MetricName == "" {
 		cfg.VictoriaMetrics.MetricName = "sealos_registry_proxy_status"
 	}
+	if cfg.VictoriaMetrics.LatencyMetricName == "" {
+		cfg.VictoriaMetrics.LatencyMetricName = "sealos_registry_proxy_response_time_seconds"
+	}
+	if cfg.SwitchPolicy.TieBreaker == "" {
+		cfg.SwitchPolicy.TieBreaker = "order"
+	}
 	if cfg.DNS.TTL == 0 {
 		cfg.DNS.TTL = 60
 	}
@@ -191,6 +200,12 @@ func validate(cfg *Config) error {
 	}
 	if cfg.Registry.Endpoint == "" {
 		return errors.New("registry.endpoint is required")
+	}
+	switch cfg.SwitchPolicy.TieBreaker {
+	case "order":
+	case "latency":
+	default:
+		return fmt.Errorf("unsupported switchPolicy.tieBreaker %q", cfg.SwitchPolicy.TieBreaker)
 	}
 	if len(cfg.Targets) == 0 {
 		return errors.New("targets is required")

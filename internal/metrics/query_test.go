@@ -18,3 +18,17 @@ func TestRegistryStatusQuery(t *testing.T) {
 		t.Fatalf("query = %q, want %q", query, want)
 	}
 }
+
+func TestRegistryLatencyQuery(t *testing.T) {
+	query := RegistryLatencyQuery(
+		"sealos_registry_proxy_response_time_seconds",
+		map[string]string{
+			"endpoint": "https://registry.example.com:5443",
+		},
+	)
+
+	want := `sealos_registry_proxy_response_time_seconds{endpoint="https://registry.example.com:5443"}`
+	if query != want {
+		t.Fatalf("query = %q, want %q", query, want)
+	}
+}

@@ -5,6 +5,7 @@ run:
 switchPolicy:
   unhealthyFor: 2m
   healthyFor: 5m
+  tieBreaker: order
 
 victoriaMetrics:
   url: http://victoria-metrics.monitoring.svc:8428
@@ -15,6 +16,8 @@ victoriaMetrics:
     username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
     password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
+  latencyMetricName: sealos_registry_proxy_response_time_seconds
+  latencyMatchers: {}
 
 registry:
   endpoint: https://registry-proxy.example.com:5443

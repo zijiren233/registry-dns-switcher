@@ -100,11 +100,15 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 		toHealthSamples(apiSamples),
 		toHealthSamples(manifestSamples),
 	)
+	latencies, err := s.queryLatencies(ctx)
+	if err != nil {
+		return err
+	}
 	now := s.clock.Now()
 	s.observeHealth(toTargets(s.cfg.Targets), healthy, now)
 
 	if s.cfg.Run.DryRun {
-		target, err := switcher.SelectTarget(toTargets(s.cfg.Targets), healthy)
+		target, err := switcher.SelectTargetWithPolicy(toTargets(s.cfg.Targets), healthy, s.selectionPolicy(latencies))
 		if err != nil {
 			slog.Warn("no healthy target found", "error", err)
 			return nil
@@ -123,7 +127,7 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read current dns record: %w", err)
 	}
-	target, current, ok := s.selectPolicyTarget(toTargets(s.cfg.Targets), healthy, currentValues, now)
+	target, current, ok := s.selectPolicyTarget(toTargets(s.cfg.Targets), healthy, latencies, currentValues, now)
 	if !ok {
 		return nil
 	}
@@ -181,6 +185,22 @@ func (s *Switcher) currentDNSValues(ctx context.Context) (map[string]string, err
 	return values, nil
 }
 
+func (s *Switcher) queryLatencies(ctx context.Context) (map[string]float64, error) {
+	if s.cfg.SwitchPolicy.TieBreaker != "latency" {
+		return nil, nil
+	}
+
+	query := metrics.RegistryLatencyQuery(
+		s.cfg.VictoriaMetrics.LatencyMetricName,
+		s.latencyMatchers(),
+	)
+	samples, err := s.metrics.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query latency: %w", err)
+	}
+	return toLatencyMap(samples), nil
+}
+
 func (s *Switcher) observeHealth(targets []switcher.Target, healthy map[string]struct{}, now time.Time) {
 	for _, target := range targets {
 		if !target.Enabled {
@@ -204,10 +224,11 @@ func (s *Switcher) observeHealth(targets []switcher.Target, healthy map[string]s
 func (s *Switcher) selectPolicyTarget(
 	targets []switcher.Target,
 	healthy map[string]struct{},
+	latencies map[string]float64,
 	currentValues map[string]string,
 	now time.Time,
 ) (switcher.Target, string, bool) {
-	target, err := switcher.SelectTarget(targets, healthy)
+	target, err := switcher.SelectTargetWithPolicy(targets, healthy, s.selectionPolicy(latencies))
 	if err != nil {
 		slog.Warn("no healthy target found", "error", err, "current", selectedCurrentValue(currentValues))
 		return switcher.Target{}, "", false
@@ -222,7 +243,7 @@ func (s *Switcher) selectPolicyTarget(
 		if s.cfg.SwitchPolicy.HealthyFor > 0 {
 			since, ok := s.healthSince[target.IP]
 			if !ok || now.Sub(since) < s.cfg.SwitchPolicy.HealthyFor {
-				slog.Info("higher priority target is healthy but waiting for healthy duration",
+				slog.Info("selected target is healthy but waiting for healthy duration",
 					"current", current,
 					"target", target.IP,
 					"healthyFor", s.cfg.SwitchPolicy.HealthyFor,
@@ -251,6 +272,13 @@ func (s *Switcher) selectPolicyTarget(
 	return target, current, true
 }
 
+func (s *Switcher) selectionPolicy(latencies map[string]float64) switcher.SelectionPolicy {
+	return switcher.SelectionPolicy{
+		TieBreaker: s.cfg.SwitchPolicy.TieBreaker,
+		Latencies:  latencies,
+	}
+}
+
 func (s *Switcher) registryMatchers() map[string]string {
 	matchers := make(map[string]string, len(s.cfg.VictoriaMetrics.Matchers)+4)
 	for key, value := range s.cfg.VictoriaMetrics.Matchers {
@@ -269,6 +297,14 @@ func (s *Switcher) registryMatchers() map[string]string {
 	return matchers
 }
 
+func (s *Switcher) latencyMatchers() map[string]string {
+	matchers := s.registryMatchers()
+	for key, value := range s.cfg.VictoriaMetrics.LatencyMatchers {
+		matchers[key] = value
+	}
+	return matchers
+}
+
 func toHealthSamples(samples []metrics.Sample) []switcher.HealthSample {
 	result := make([]switcher.HealthSample, 0, len(samples))
 	for _, sample := range samples {
@@ -280,6 +316,21 @@ func toHealthSamples(samples []metrics.Sample) []switcher.HealthSample {
 			IP:    ip,
 			Value: sample.Value,
 		})
+	}
+	return result
+}
+
+func toLatencyMap(samples []metrics.Sample) map[string]float64 {
+	result := make(map[string]float64, len(samples))
+	for _, sample := range samples {
+		ip := sample.Metric["ip"]
+		if ip == "" {
+			continue
+		}
+		current, exists := result[ip]
+		if !exists || sample.Value < current {
+			result[ip] = sample.Value
+		}
 	}
 	return result
 }

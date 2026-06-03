@@ -227,4 +227,45 @@ dns:
 	if cfg.SwitchPolicy.HealthyFor != 5*time.Minute {
 		t.Fatalf("healthyFor = %v, want 5m", cfg.SwitchPolicy.HealthyFor)
 	}
+	if cfg.SwitchPolicy.TieBreaker != "order" {
+		t.Fatalf("tieBreaker = %q, want order", cfg.SwitchPolicy.TieBreaker)
+	}
+	if cfg.VictoriaMetrics.LatencyMetricName != "sealos_registry_proxy_response_time_seconds" {
+		t.Fatalf("latencyMetricName = %q, want default", cfg.VictoriaMetrics.LatencyMetricName)
+	}
+}
+
+func TestLoadFileAllowsLatencyTieBreakerWithDefaultLatencyMetric(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`
+run:
+  dryRun: true
+switchPolicy:
+  tieBreaker: latency
+victoriaMetrics:
+  url: http://vm.example.com
+registry:
+  endpoint: https://registry.example.com:5443
+targets:
+  - ip: 10.0.0.1
+    priority: 10
+dns:
+  provider: cloudflare
+  recordName: registry.example.com
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error: %v", err)
+	}
+
+	if cfg.SwitchPolicy.TieBreaker != "latency" {
+		t.Fatalf("tieBreaker = %q, want latency", cfg.SwitchPolicy.TieBreaker)
+	}
+	if cfg.VictoriaMetrics.LatencyMetricName != "sealos_registry_proxy_response_time_seconds" {
+		t.Fatalf("latencyMetricName = %q, want default", cfg.VictoriaMetrics.LatencyMetricName)
+	}
 }

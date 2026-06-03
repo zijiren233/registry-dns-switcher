@@ -137,6 +137,89 @@ func TestReconcileRequiresAPIAndManifestHealthy(t *testing.T) {
 	}
 }
 
+func TestReconcileUsesLowestLatencyForPriorityTie(t *testing.T) {
+	cfg := testConfig()
+	cfg.SwitchPolicy.TieBreaker = "latency"
+	cfg.VictoriaMetrics.LatencyMetricName = "sealos_registry_proxy_response_time_seconds"
+	cfg.Targets = []config.TargetConfig{
+		{IP: "10.0.0.1", Priority: 20},
+		{IP: "10.0.0.2", Priority: 20},
+	}
+
+	queryAPI := `sealos_registry_proxy_status{check_type="api",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	queryManifest := `sealos_registry_proxy_status{check_type="manifest",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	queryLatency := `sealos_registry_proxy_response_time_seconds{endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	metricClient := &fakeMetrics{results: map[string][]metrics.Sample{
+		queryAPI: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 1},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1},
+		},
+		queryManifest: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 1},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1},
+		},
+		queryLatency: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 0.3},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 0.1},
+		},
+	}}
+	dnsProvider := &fakeDNS{currentValue: "10.0.0.9"}
+
+	switcher := NewWithDependencies(cfg, metricClient, dnsProvider)
+	if err := switcher.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	if len(dnsProvider.updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
+	}
+	if dnsProvider.updates[0].value != "10.0.0.2" {
+		t.Fatalf("updated value = %q, want 10.0.0.2", dnsProvider.updates[0].value)
+	}
+}
+
+func TestReconcileUsesLatencyMatchers(t *testing.T) {
+	cfg := testConfig()
+	cfg.SwitchPolicy.TieBreaker = "latency"
+	cfg.VictoriaMetrics.LatencyMetricName = "sealos_registry_proxy_response_time_seconds"
+	cfg.VictoriaMetrics.LatencyMatchers = map[string]string{"check_type": "manifest"}
+	cfg.Targets = []config.TargetConfig{
+		{IP: "10.0.0.1", Priority: 20},
+		{IP: "10.0.0.2", Priority: 20},
+	}
+
+	queryAPI := `sealos_registry_proxy_status{check_type="api",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	queryManifest := `sealos_registry_proxy_status{check_type="manifest",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	queryLatency := `sealos_registry_proxy_response_time_seconds{check_type="manifest",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	metricClient := &fakeMetrics{results: map[string][]metrics.Sample{
+		queryAPI: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 1},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1},
+		},
+		queryManifest: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 1},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1},
+		},
+		queryLatency: {
+			{Metric: map[string]string{"ip": "10.0.0.1"}, Value: 0.3},
+			{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 0.1},
+		},
+	}}
+	dnsProvider := &fakeDNS{currentValue: "10.0.0.9"}
+
+	switcher := NewWithDependencies(cfg, metricClient, dnsProvider)
+	if err := switcher.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	if len(dnsProvider.updates) != 1 {
+		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
+	}
+	if dnsProvider.updates[0].value != "10.0.0.2" {
+		t.Fatalf("updated value = %q, want 10.0.0.2", dnsProvider.updates[0].value)
+	}
+}
+
 func TestReconcileSkipsDNSUpdateWhenRecordAlreadyMatches(t *testing.T) {
 	cfg := testConfig()
 	queryAPI := `sealos_registry_proxy_status{check_type="api",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`

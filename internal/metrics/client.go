@@ -144,6 +144,10 @@ func RegistryStatusQuery(metricName string, matchers map[string]string, checkTyp
 	return metricName + "{" + formatMatchers(allMatchers) + "}"
 }
 
+func RegistryLatencyQuery(metricName string, matchers map[string]string) string {
+	return metricName + "{" + formatMatchers(matchers) + "}"
+}
+
 func formatMatchers(matchers map[string]string) string {
 	keys := make([]string, 0, len(matchers))
 	for key := range matchers {

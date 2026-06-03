@@ -13,11 +13,15 @@ data:
     switchPolicy:
       unhealthyFor: {{ .Values.switchPolicy.unhealthyFor | quote }}
       healthyFor: {{ .Values.switchPolicy.healthyFor | quote }}
+      tieBreaker: {{ .Values.switchPolicy.tieBreaker | quote }}
     victoriaMetrics:
       url: {{ .Values.victoriaMetrics.url | quote }}
       queryPath: {{ .Values.victoriaMetrics.queryPath | quote }}
       timeout: {{ .Values.victoriaMetrics.timeout | quote }}
       metricName: {{ .Values.victoriaMetrics.metricName | quote }}
+      latencyMetricName: {{ .Values.victoriaMetrics.latencyMetricName | quote }}
+      latencyMatchers:
+        {{- toYaml .Values.victoriaMetrics.latencyMatchers | nindent 8 }}
       bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}
       basicAuth:
         username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}

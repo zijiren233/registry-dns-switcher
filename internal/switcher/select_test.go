@@ -42,3 +42,55 @@ func TestSelectTargetUsesHighestPriority(t *testing.T) {
 		t.Fatalf("selected IP = %q, want 10.0.0.2", selected.IP)
 	}
 }
+
+func TestSelectTargetUsesLowestLatencyForPriorityTie(t *testing.T) {
+	selected, err := SelectTargetWithPolicy(
+		[]Target{
+			{IP: "10.0.0.1", Priority: 10, Enabled: true},
+			{IP: "10.0.0.2", Priority: 10, Enabled: true},
+		},
+		map[string]struct{}{
+			"10.0.0.1": {},
+			"10.0.0.2": {},
+		},
+		SelectionPolicy{
+			TieBreaker: "latency",
+			Latencies: map[string]float64{
+				"10.0.0.1": 0.3,
+				"10.0.0.2": 0.1,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SelectTargetWithPolicy returned error: %v", err)
+	}
+	if selected.IP != "10.0.0.2" {
+		t.Fatalf("selected IP = %q, want 10.0.0.2", selected.IP)
+	}
+}
+
+func TestSelectTargetKeepsOrderWhenPriorityAndLatencyTie(t *testing.T) {
+	selected, err := SelectTargetWithPolicy(
+		[]Target{
+			{IP: "10.0.0.1", Priority: 10, Enabled: true},
+			{IP: "10.0.0.2", Priority: 10, Enabled: true},
+		},
+		map[string]struct{}{
+			"10.0.0.1": {},
+			"10.0.0.2": {},
+		},
+		SelectionPolicy{
+			TieBreaker: "latency",
+			Latencies: map[string]float64{
+				"10.0.0.1": 0.1,
+				"10.0.0.2": 0.1,
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("SelectTargetWithPolicy returned error: %v", err)
+	}
+	if selected.IP != "10.0.0.1" {
+		t.Fatalf("selected IP = %q, want 10.0.0.1", selected.IP)
+	}
+}

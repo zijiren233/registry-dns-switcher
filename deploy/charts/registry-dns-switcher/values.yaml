@@ -41,12 +41,15 @@ run:
 switchPolicy:
   unhealthyFor: 2m
   healthyFor: 5m
+  tieBreaker: order
 
 victoriaMetrics:
   url: http://victoria-metrics.monitoring.svc:8428
   queryPath: /api/v1/query
   timeout: 10s
   metricName: sealos_registry_proxy_status
+  latencyMetricName: sealos_registry_proxy_response_time_seconds
+  latencyMatchers: {}
   matchers: {}
 
 registry:

@@ -22,6 +22,14 @@ switchPolicy:
 
 `unhealthyFor` controls how long the current DNS IP must stay unhealthy before failover. `healthyFor` controls how long a higher-priority IP must stay healthy before switching back.
 
+Targets with the same priority use `switchPolicy.tieBreaker`. The default value is `order`, which keeps the first healthy target from `targets`. Use `latency` with a VictoriaMetrics latency metric to select the lower-latency IP:
+
+```bash
+helm upgrade --install registry-dns-switcher ./deploy/charts/registry-dns-switcher \
+  --set switchPolicy.tieBreaker=latency \
+  --set victoriaMetrics.latencyMatchers.check_type=manifest
+```
+
 VictoriaMetrics authentication is configured through the chart Secret and expanded into the generated config:
 
 ```bash

@@ -1,6 +1,6 @@
 # Registry DNS Switcher
 
-Registry DNS Switcher reads registry proxy health metrics from VictoriaMetrics and updates a DNS record to the highest-priority healthy IP.
+Registry DNS Switcher reads registry proxy health metrics from VictoriaMetrics and updates a DNS record to the selected healthy IP.
 
 It is designed for metrics emitted by `sealos-state-metrics` registryproxy collector:
 
@@ -9,9 +9,9 @@ sealos_registry_proxy_status{check_type="api",ip="10.0.0.12"} 1
 sealos_registry_proxy_status{check_type="manifest",ip="10.0.0.12"} 1
 ```
 
-An IP is healthy only when both `api` and `manifest` samples are `1`. Among healthy IPs, the largest `priority` wins.
+An IP is healthy only when both `api` and `manifest` samples are `1`. Among healthy IPs, the largest `priority` wins. Targets with the same priority are selected by `switchPolicy.tieBreaker`.
 
-`switchPolicy.unhealthyFor` delays failover after the current DNS IP becomes unhealthy. `switchPolicy.healthyFor` delays switching back to a higher-priority IP after it recovers. When no configured target is healthy, the tool keeps the current DNS record unchanged and logs a warning.
+`switchPolicy.unhealthyFor` delays failover after the current DNS IP becomes unhealthy. `switchPolicy.healthyFor` delays switching to a selected healthy target while the current DNS IP is still healthy. When no configured target is healthy, the tool keeps the current DNS record unchanged and logs a warning.
 
 ## Configuration
 
@@ -23,6 +23,7 @@ run:
 switchPolicy:
   unhealthyFor: 2m
   healthyFor: 5m
+  tieBreaker: order
 
 victoriaMetrics:
   url: http://victoria-metrics.monitoring.svc:8428
@@ -33,6 +34,8 @@ victoriaMetrics:
     username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
     password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
+  latencyMetricName: sealos_registry_proxy_response_time_seconds
+  latencyMatchers: {}
 
 registry:
   endpoint: https://registry-proxy.example.com:5443
@@ -55,6 +58,29 @@ dns:
 ```
 
 The `fake` provider keeps records in memory and logs every update. It is useful for testing the full VictoriaMetrics query and priority-selection flow without touching external DNS.
+
+`switchPolicy.tieBreaker` controls how targets with the same `priority` are selected:
+
+```yaml
+switchPolicy:
+  tieBreaker: order
+```
+
+`order` keeps the first healthy target from `targets`. To select the lower-latency IP for equal priority, enable `latency`:
+
+```yaml
+switchPolicy:
+  tieBreaker: latency
+```
+
+`victoriaMetrics.latencyMetricName` defaults to `sealos_registry_proxy_response_time_seconds`. The latency metric from `sealos-state-metric` has `endpoint`, `ip`, and `check_type` labels. By default, latency tie-breaking uses the lowest latency sample per IP from all returned `check_type` values. Use `victoriaMetrics.latencyMatchers` to narrow the latency query:
+
+```yaml
+victoriaMetrics:
+  latencyMetricName: sealos_registry_proxy_response_time_seconds
+  latencyMatchers:
+    check_type: manifest
+```
 
 VictoriaMetrics authentication can use either a bearer token or basic auth. Values support environment variable expansion:
 
@@ -136,6 +162,7 @@ Tests cover the behaviors that decide correctness:
 
 - Both `api` and `manifest` must be healthy for an IP to be eligible.
 - Highest `priority` wins among healthy enabled targets.
+- Same-priority targets can use the configured tie-breaker.
 - Failover waits for `switchPolicy.unhealthyFor`.
 - Switchback waits for `switchPolicy.healthyFor`.
 - All targets unhealthy keeps DNS unchanged.
