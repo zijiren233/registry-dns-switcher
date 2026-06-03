@@ -28,12 +28,16 @@ victoriaMetrics:
   url: http://victoria-metrics.monitoring.svc:8428
   queryPath: /api/v1/query
   timeout: 10s
+  bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}
+  basicAuth:
+    username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
+    password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
 
 registry:
   endpoint: https://registry-proxy.example.com:5443
-  repository: library/busybox
-  reference: latest
+  repository: ""
+  reference: ""
 
 targets:
   - ip: 10.0.0.12
@@ -51,6 +55,20 @@ dns:
 ```
 
 The `fake` provider keeps records in memory and logs every update. It is useful for testing the full VictoriaMetrics query and priority-selection flow without touching external DNS.
+
+VictoriaMetrics authentication can use either a bearer token or basic auth. Values support environment variable expansion:
+
+```yaml
+victoriaMetrics:
+  bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}
+```
+
+```yaml
+victoriaMetrics:
+  basicAuth:
+    username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
+    password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
+```
 
 For Cloudflare:
 
@@ -106,11 +124,11 @@ Flags override config:
 The tool queries:
 
 ```promql
-sealos_registry_proxy_status{endpoint="<endpoint>",repository="<repository>",reference="<reference>",check_type="api"}
-sealos_registry_proxy_status{endpoint="<endpoint>",repository="<repository>",reference="<reference>",check_type="manifest"}
+sealos_registry_proxy_status{endpoint="<endpoint>",check_type="api"}
+sealos_registry_proxy_status{endpoint="<endpoint>",check_type="manifest"}
 ```
 
-Additional static label matchers can be set under `victoriaMetrics.matchers`.
+`registry.info`, `registry.repository`, and `registry.reference` are optional. When set, they are added as label matchers. Additional static label matchers can be set under `victoriaMetrics.matchers`.
 
 ## TDD Coverage
 

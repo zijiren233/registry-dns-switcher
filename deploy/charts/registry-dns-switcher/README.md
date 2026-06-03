@@ -22,6 +22,19 @@ switchPolicy:
 
 `unhealthyFor` controls how long the current DNS IP must stay unhealthy before failover. `healthyFor` controls how long a higher-priority IP must stay healthy before switching back.
 
+VictoriaMetrics authentication is configured through the chart Secret and expanded into the generated config:
+
+```bash
+helm upgrade --install registry-dns-switcher ./deploy/charts/registry-dns-switcher \
+  --set secret.victoriaMetrics.bearerToken="$VICTORIA_METRICS_BEARER_TOKEN"
+```
+
+```bash
+helm upgrade --install registry-dns-switcher ./deploy/charts/registry-dns-switcher \
+  --set secret.victoriaMetrics.basicAuth.username="$VICTORIA_METRICS_BASIC_AUTH_USERNAME" \
+  --set secret.victoriaMetrics.basicAuth.password="$VICTORIA_METRICS_BASIC_AUTH_PASSWORD"
+```
+
 The default DNS provider is `fake`, which keeps records in memory and logs updates. Use it to test the switcher end-to-end without external DNS writes:
 
 ```bash

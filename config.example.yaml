@@ -10,12 +10,16 @@ victoriaMetrics:
   url: http://victoria-metrics.monitoring.svc:8428
   queryPath: /api/v1/query
   timeout: 10s
+  bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}
+  basicAuth:
+    username: ${VICTORIA_METRICS_BASIC_AUTH_USERNAME}
+    password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
 
 registry:
   endpoint: https://registry-proxy.example.com:5443
-  repository: library/busybox
-  reference: latest
+  repository: ""
+  reference: ""
 
 targets:
   - ip: 10.0.0.12
