@@ -220,6 +220,32 @@ func TestReconcileUsesLatencyMatchers(t *testing.T) {
 	}
 }
 
+func TestReconcileUsesConfiguredRegistryEndpointLabel(t *testing.T) {
+	cfg := testConfig()
+	cfg.VictoriaMetrics.RegistryEndpointLabel = "exported_endpoint"
+	cfg.VictoriaMetrics.Matchers = map[string]string{"endpoint": "server"}
+
+	queryAPI := `sealos_registry_proxy_status{check_type="api",endpoint="server",exported_endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	queryManifest := `sealos_registry_proxy_status{check_type="manifest",endpoint="server",exported_endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
+	metricClient := &fakeMetrics{results: map[string][]metrics.Sample{
+		queryAPI:      {{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1}},
+		queryManifest: {{Metric: map[string]string{"ip": "10.0.0.2"}, Value: 1}},
+	}}
+	dnsProvider := &fakeDNS{currentValue: "10.0.0.9"}
+
+	switcher := NewWithDependencies(cfg, metricClient, dnsProvider)
+	if err := switcher.Reconcile(context.Background()); err != nil {
+		t.Fatalf("Reconcile returned error: %v", err)
+	}
+
+	if len(dnsProvider.updates) != 1 || dnsProvider.updates[0].value != "10.0.0.2" {
+		t.Fatalf("updates = %#v, want switch to 10.0.0.2", dnsProvider.updates)
+	}
+	if len(metricClient.queries) < 2 || metricClient.queries[0] != queryAPI || metricClient.queries[1] != queryManifest {
+		t.Fatalf("queries = %#v, want exported_endpoint queries", metricClient.queries)
+	}
+}
+
 func TestReconcileSkipsDNSUpdateWhenRecordAlreadyMatches(t *testing.T) {
 	cfg := testConfig()
 	queryAPI := `sealos_registry_proxy_status{check_type="api",endpoint="https://registry.example.com:5443",reference="latest",repository="library/busybox"}`
@@ -461,7 +487,8 @@ func TestReconcileKeepsCurrentDNSWhenNoTargetsAreHealthy(t *testing.T) {
 func testConfig() *config.Config {
 	return &config.Config{
 		VictoriaMetrics: config.VictoriaMetricsConfig{
-			MetricName: "sealos_registry_proxy_status",
+			MetricName:            "sealos_registry_proxy_status",
+			RegistryEndpointLabel: "endpoint",
 		},
 		Registry: config.RegistryConfig{
 			Endpoint:   "https://registry.example.com:5443",

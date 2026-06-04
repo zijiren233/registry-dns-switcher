@@ -17,6 +17,7 @@ victoriaMetrics:
     password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
   latencyMetricName: sealos_registry_proxy_response_time_seconds
+  registryEndpointLabel: endpoint
   latencyMatchers: {}
 
 registry:

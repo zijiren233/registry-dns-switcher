@@ -284,7 +284,11 @@ func (s *Switcher) registryMatchers() map[string]string {
 	for key, value := range s.cfg.VictoriaMetrics.Matchers {
 		matchers[key] = value
 	}
-	matchers["endpoint"] = s.cfg.Registry.Endpoint
+	registryEndpointLabel := s.cfg.VictoriaMetrics.RegistryEndpointLabel
+	if registryEndpointLabel == "" {
+		registryEndpointLabel = "endpoint"
+	}
+	matchers[registryEndpointLabel] = s.cfg.Registry.Endpoint
 	if s.cfg.Registry.Info != "" {
 		matchers["info"] = s.cfg.Registry.Info
 	}

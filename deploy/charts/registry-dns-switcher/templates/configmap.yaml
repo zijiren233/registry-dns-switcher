@@ -20,6 +20,7 @@ data:
       timeout: {{ .Values.victoriaMetrics.timeout | quote }}
       metricName: {{ .Values.victoriaMetrics.metricName | quote }}
       latencyMetricName: {{ .Values.victoriaMetrics.latencyMetricName | quote }}
+      registryEndpointLabel: {{ .Values.victoriaMetrics.registryEndpointLabel | quote }}
       latencyMatchers:
         {{- toYaml .Values.victoriaMetrics.latencyMatchers | nindent 8 }}
       bearerToken: ${VICTORIA_METRICS_BEARER_TOKEN}

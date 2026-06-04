@@ -33,15 +33,16 @@ type SwitchPolicyConfig struct {
 }
 
 type VictoriaMetricsConfig struct {
-	URL               string            `yaml:"url"`
-	QueryPath         string            `yaml:"queryPath"`
-	Timeout           time.Duration     `yaml:"timeout"`
-	BearerToken       string            `yaml:"bearerToken"`
-	BasicAuth         BasicAuthConfig   `yaml:"basicAuth"`
-	MetricName        string            `yaml:"metricName"`
-	LatencyMetricName string            `yaml:"latencyMetricName"`
-	LatencyMatchers   map[string]string `yaml:"latencyMatchers"`
-	Matchers          map[string]string `yaml:"matchers"`
+	URL                   string            `yaml:"url"`
+	QueryPath             string            `yaml:"queryPath"`
+	Timeout               time.Duration     `yaml:"timeout"`
+	BearerToken           string            `yaml:"bearerToken"`
+	BasicAuth             BasicAuthConfig   `yaml:"basicAuth"`
+	MetricName            string            `yaml:"metricName"`
+	LatencyMetricName     string            `yaml:"latencyMetricName"`
+	RegistryEndpointLabel string            `yaml:"registryEndpointLabel"`
+	LatencyMatchers       map[string]string `yaml:"latencyMatchers"`
+	Matchers              map[string]string `yaml:"matchers"`
 }
 
 type BasicAuthConfig struct {
@@ -185,6 +186,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.VictoriaMetrics.LatencyMetricName == "" {
 		cfg.VictoriaMetrics.LatencyMetricName = "sealos_registry_proxy_response_time_seconds"
+	}
+	if cfg.VictoriaMetrics.RegistryEndpointLabel == "" {
+		cfg.VictoriaMetrics.RegistryEndpointLabel = "endpoint"
 	}
 	if cfg.SwitchPolicy.TieBreaker == "" {
 		cfg.SwitchPolicy.TieBreaker = "order"

@@ -35,6 +35,7 @@ victoriaMetrics:
     password: ${VICTORIA_METRICS_BASIC_AUTH_PASSWORD}
   metricName: sealos_registry_proxy_status
   latencyMetricName: sealos_registry_proxy_response_time_seconds
+  registryEndpointLabel: endpoint
   latencyMatchers: {}
 
 registry:
@@ -72,6 +73,8 @@ switchPolicy:
 switchPolicy:
   tieBreaker: latency
 ```
+
+`victoriaMetrics.registryEndpointLabel` defaults to `endpoint`. Set it to `exported_endpoint` when the scrape pipeline renames the registry proxy metric label because the scrape target already uses `endpoint`.
 
 `victoriaMetrics.latencyMetricName` defaults to `sealos_registry_proxy_response_time_seconds`. The latency metric from `sealos-state-metric` has `endpoint`, `ip`, and `check_type` labels. By default, latency tie-breaking uses the lowest latency sample per IP from all returned `check_type` values. Use `victoriaMetrics.latencyMatchers` to narrow the latency query:
 
@@ -150,8 +153,8 @@ Flags override config:
 The tool queries:
 
 ```promql
-sealos_registry_proxy_status{endpoint="<endpoint>",check_type="api"}
-sealos_registry_proxy_status{endpoint="<endpoint>",check_type="manifest"}
+sealos_registry_proxy_status{<registryEndpointLabel>="<registry.endpoint>",check_type="api"}
+sealos_registry_proxy_status{<registryEndpointLabel>="<registry.endpoint>",check_type="manifest"}
 ```
 
 `registry.info`, `registry.repository`, and `registry.reference` are optional. When set, they are added as label matchers. Additional static label matchers can be set under `victoriaMetrics.matchers`.

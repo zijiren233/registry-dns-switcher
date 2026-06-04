@@ -233,6 +233,9 @@ dns:
 	if cfg.VictoriaMetrics.LatencyMetricName != "sealos_registry_proxy_response_time_seconds" {
 		t.Fatalf("latencyMetricName = %q, want default", cfg.VictoriaMetrics.LatencyMetricName)
 	}
+	if cfg.VictoriaMetrics.RegistryEndpointLabel != "endpoint" {
+		t.Fatalf("registryEndpointLabel = %q, want endpoint", cfg.VictoriaMetrics.RegistryEndpointLabel)
+	}
 }
 
 func TestLoadFileAllowsLatencyTieBreakerWithDefaultLatencyMetric(t *testing.T) {
@@ -267,5 +270,41 @@ dns:
 	}
 	if cfg.VictoriaMetrics.LatencyMetricName != "sealos_registry_proxy_response_time_seconds" {
 		t.Fatalf("latencyMetricName = %q, want default", cfg.VictoriaMetrics.LatencyMetricName)
+	}
+}
+
+func TestLoadFileParsesRegistryEndpointLabel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := []byte(`
+run:
+  dryRun: true
+victoriaMetrics:
+  url: http://vm.example.com
+  registryEndpointLabel: exported_endpoint
+  matchers:
+    endpoint: server
+registry:
+  endpoint: https://registry.example.com:5443
+targets:
+  - ip: 10.0.0.1
+    priority: 10
+dns:
+  provider: cloudflare
+  recordName: registry.example.com
+`)
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	cfg, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile returned error: %v", err)
+	}
+
+	if cfg.VictoriaMetrics.RegistryEndpointLabel != "exported_endpoint" {
+		t.Fatalf("registryEndpointLabel = %q, want exported_endpoint", cfg.VictoriaMetrics.RegistryEndpointLabel)
+	}
+	if cfg.VictoriaMetrics.Matchers["endpoint"] != "server" {
+		t.Fatalf("matchers.endpoint = %q, want server", cfg.VictoriaMetrics.Matchers["endpoint"])
 	}
 }
