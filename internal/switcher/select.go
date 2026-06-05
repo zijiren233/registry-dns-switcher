@@ -1,6 +1,7 @@
 package switcher
 
 import (
+	"errors"
 	"fmt"
 	"net"
 )
