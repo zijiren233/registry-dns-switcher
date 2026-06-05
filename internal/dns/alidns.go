@@ -6,7 +6,6 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/alidns"
-
 	"registry-dns-switcher/internal/config"
 )
 
@@ -25,6 +24,7 @@ func NewAliDNSProvider(cfg config.AliDNSConfig) (*AliDNSProvider, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &AliDNSProvider{
 		client:     client,
 		domainName: cfg.DomainName,
@@ -40,6 +40,7 @@ func (p *AliDNSProvider) CurrentValue(
 	if err != nil {
 		return "", err
 	}
+
 	return record.Value, nil
 }
 
@@ -62,6 +63,7 @@ func (p *AliDNSProvider) Upsert(
 		req.Value = value
 		req.TTL = requests.NewInteger64(ttl)
 		_, err := p.client.AddDomainRecord(req)
+
 		return err
 	}
 
@@ -73,6 +75,7 @@ func (p *AliDNSProvider) Upsert(
 	req.Value = value
 	req.TTL = requests.NewInteger64(ttl)
 	_, err = p.client.UpdateDomainRecord(req)
+
 	return err
 }
 
@@ -81,6 +84,7 @@ func (p *AliDNSProvider) Delete(_ context.Context, recordName, recordType string
 	if err != nil {
 		return err
 	}
+
 	if record.RecordID == "" {
 		return nil
 	}
@@ -89,6 +93,7 @@ func (p *AliDNSProvider) Delete(_ context.Context, recordName, recordType string
 	req.Scheme = "https"
 	req.RecordId = record.RecordID
 	_, err = p.client.DeleteDomainRecord(req)
+
 	return err
 }
 
@@ -118,6 +123,7 @@ func (p *AliDNSProvider) findRecord(recordName, recordType string) (aliRecord, e
 			}, nil
 		}
 	}
+
 	return aliRecord{}, nil
 }
 
@@ -125,14 +131,18 @@ func (p *AliDNSProvider) recordRR(recordName string) string {
 	if p.rr != "" {
 		return p.rr
 	}
+
 	domainName := strings.TrimSuffix(p.domainName, ".")
+
 	rr := strings.TrimSuffix(recordName, ".")
 	if rr == domainName {
 		return "@"
 	}
+
 	rr = strings.TrimSuffix(rr, "."+domainName)
 	if rr == "" {
 		return "@"
 	}
+
 	return rr
 }

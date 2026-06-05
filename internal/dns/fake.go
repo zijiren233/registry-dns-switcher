@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"sync"
 
 	"registry-dns-switcher/internal/config"
@@ -15,13 +16,15 @@ type FakeProvider struct {
 
 func NewFakeProvider(cfg config.FakeDNSConfig) *FakeProvider {
 	records := make(map[string]string, len(cfg.Records))
-	for key, value := range cfg.Records {
-		records[key] = value
-	}
+	maps.Copy(records, cfg.Records)
+
 	return &FakeProvider{records: records}
 }
 
-func (p *FakeProvider) CurrentValue(_ context.Context, recordName, recordType string) (string, error) {
+func (p *FakeProvider) CurrentValue(
+	_ context.Context,
+	recordName, recordType string,
+) (string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.records[fakeRecordKey(recordName, recordType)], nil
@@ -46,6 +49,7 @@ func (p *FakeProvider) Upsert(
 		"value", value,
 		"ttl", ttl,
 	)
+
 	return nil
 }
 
@@ -62,6 +66,7 @@ func (p *FakeProvider) Delete(_ context.Context, recordName, recordType string) 
 		"type", recordType,
 		"previous", current,
 	)
+
 	return nil
 }
 

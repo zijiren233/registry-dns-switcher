@@ -44,9 +44,11 @@ func (f *fakeDNS) CurrentValue(_ context.Context, recordName, recordType string)
 	if f.records != nil {
 		return f.records[recordType], nil
 	}
+
 	if recordType != "A" {
 		return "", nil
 	}
+
 	return f.currentValue, nil
 }
 
@@ -54,6 +56,7 @@ func (f *fakeDNS) Upsert(_ context.Context, recordName, recordType, value string
 	if f.records != nil {
 		f.records[recordType] = value
 	}
+
 	f.updates = append(f.updates, dnsUpdate{
 		recordName: recordName,
 		recordType: recordType,
@@ -61,6 +64,7 @@ func (f *fakeDNS) Upsert(_ context.Context, recordName, recordType, value string
 		ttl:        ttl,
 	})
 	f.currentValue = value
+
 	return nil
 }
 
@@ -68,10 +72,12 @@ func (f *fakeDNS) Delete(_ context.Context, recordName, recordType string) error
 	if f.records != nil {
 		delete(f.records, recordType)
 	}
+
 	f.deletes = append(f.deletes, dnsDelete{
 		recordName: recordName,
 		recordType: recordType,
 	})
+
 	return nil
 }
 
@@ -99,6 +105,7 @@ func TestReconcileSwitchesToHighestPriorityHealthyIP(t *testing.T) {
 	if len(dnsProvider.updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
 	}
+
 	update := dnsProvider.updates[0]
 	if update.recordName != "registry.example.com" ||
 		update.recordType != "A" ||
@@ -132,6 +139,7 @@ func TestReconcileRequiresAPIAndManifestHealthy(t *testing.T) {
 	if len(dnsProvider.updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
 	}
+
 	if dnsProvider.updates[0].value != "10.0.0.1" {
 		t.Fatalf("updated value = %q, want 10.0.0.1", dnsProvider.updates[0].value)
 	}
@@ -173,6 +181,7 @@ func TestReconcileUsesLowestLatencyForPriorityTie(t *testing.T) {
 	if len(dnsProvider.updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
 	}
+
 	if dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updated value = %q, want 10.0.0.2", dnsProvider.updates[0].value)
 	}
@@ -215,6 +224,7 @@ func TestReconcileUsesLatencyMatchers(t *testing.T) {
 	if len(dnsProvider.updates) != 1 {
 		t.Fatalf("updates = %d, want 1", len(dnsProvider.updates))
 	}
+
 	if dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updated value = %q, want 10.0.0.2", dnsProvider.updates[0].value)
 	}
@@ -241,7 +251,9 @@ func TestReconcileUsesConfiguredRegistryEndpointLabel(t *testing.T) {
 	if len(dnsProvider.updates) != 1 || dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updates = %#v, want switch to 10.0.0.2", dnsProvider.updates)
 	}
-	if len(metricClient.queries) < 2 || metricClient.queries[0] != queryAPI || metricClient.queries[1] != queryManifest {
+
+	if len(metricClient.queries) < 2 || metricClient.queries[0] != queryAPI ||
+		metricClient.queries[1] != queryManifest {
 		t.Fatalf("queries = %#v, want exported_endpoint queries", metricClient.queries)
 	}
 }
@@ -286,6 +298,7 @@ func TestReconcileDryRunSkipsDNSReadAndUpdate(t *testing.T) {
 	if dnsProvider.currentCalls != 0 {
 		t.Fatalf("currentCalls = %d, want 0", dnsProvider.currentCalls)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates = %d, want 0", len(dnsProvider.updates))
 	}
@@ -316,22 +329,27 @@ func TestReconcileWaitsForCurrentIPUnhealthyDurationBeforeSwitchingAway(t *testi
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("first Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates before unhealthy duration = %d, want 0", len(dnsProvider.updates))
 	}
 
 	clock.now = clock.now.Add(2*time.Minute - time.Second)
+
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("second Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates before threshold = %d, want 0", len(dnsProvider.updates))
 	}
 
 	clock.now = clock.now.Add(time.Second)
+
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("third Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 1 || dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updates after threshold = %#v, want switch to 10.0.0.2", dnsProvider.updates)
 	}
@@ -360,14 +378,17 @@ func TestReconcileWaitsForUnknownCurrentIPUnhealthyDurationBeforeSwitchingAway(t
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("first Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates before unhealthy duration = %d, want 0", len(dnsProvider.updates))
 	}
 
 	clock.now = clock.now.Add(2 * time.Minute)
+
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("second Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 1 || dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updates after threshold = %#v, want switch to 10.0.0.2", dnsProvider.updates)
 	}
@@ -398,22 +419,27 @@ func TestReconcileWaitsForHigherPriorityIPHealthyDurationBeforeSwitchingBack(t *
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("first Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates before healthy duration = %d, want 0", len(dnsProvider.updates))
 	}
 
 	clock.now = clock.now.Add(5*time.Minute - time.Second)
+
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("second Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates before threshold = %d, want 0", len(dnsProvider.updates))
 	}
 
 	clock.now = clock.now.Add(time.Second)
+
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("third Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 1 || dnsProvider.updates[0].value != "10.0.0.2" {
 		t.Fatalf("updates after threshold = %#v, want switch to 10.0.0.2", dnsProvider.updates)
 	}
@@ -450,9 +476,11 @@ func TestReconcileDeletesStaleOppositeFamilyRecord(t *testing.T) {
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates = %d, want 0", len(dnsProvider.updates))
 	}
+
 	if len(dnsProvider.deletes) != 1 || dnsProvider.deletes[0].recordType != "A" {
 		t.Fatalf("deletes = %#v, want stale A delete", dnsProvider.deletes)
 	}
+
 	if _, exists := dnsProvider.records["A"]; exists {
 		t.Fatalf("A record still exists: %#v", dnsProvider.records)
 	}
@@ -479,6 +507,7 @@ func TestReconcileKeepsCurrentDNSWhenNoTargetsAreHealthy(t *testing.T) {
 	if err := switcher.Reconcile(context.Background()); err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
+
 	if len(dnsProvider.updates) != 0 {
 		t.Fatalf("updates = %d, want 0", len(dnsProvider.updates))
 	}

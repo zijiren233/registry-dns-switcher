@@ -18,11 +18,18 @@ func TestFakeProviderStoresRecordsInMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CurrentValue returned error: %v", err)
 	}
+
 	if current != "10.0.0.1" {
 		t.Fatalf("current = %q, want 10.0.0.1", current)
 	}
 
-	if err := provider.Upsert(context.Background(), "registry.example.com", "A", "10.0.0.2", 60); err != nil {
+	if err := provider.Upsert(
+		context.Background(),
+		"registry.example.com",
+		"A",
+		"10.0.0.2",
+		60,
+	); err != nil {
 		t.Fatalf("Upsert returned error: %v", err)
 	}
 
@@ -30,6 +37,7 @@ func TestFakeProviderStoresRecordsInMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CurrentValue returned error: %v", err)
 	}
+
 	if current != "10.0.0.2" {
 		t.Fatalf("current = %q, want 10.0.0.2", current)
 	}
@@ -42,6 +50,7 @@ func TestFakeProviderStoresRecordsInMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CurrentValue returned error: %v", err)
 	}
+
 	if current != "" {
 		t.Fatalf("current = %q, want empty", current)
 	}
@@ -62,6 +71,7 @@ func TestNewProviderSupportsFake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CurrentValue returned error: %v", err)
 	}
+
 	if current != "10.0.0.1" {
 		t.Fatalf("current = %q, want 10.0.0.1", current)
 	}

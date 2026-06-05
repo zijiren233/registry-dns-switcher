@@ -121,9 +121,11 @@ func Load(content []byte, opts ...LoadOption) (*Config, error) {
 
 	expandEnv(&cfg)
 	applyDefaults(&cfg)
+
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+
 	if err := validate(&cfg); err != nil {
 		return nil, err
 	}
@@ -144,7 +146,9 @@ func expandEnvValue(value reflect.Value) {
 		if value.IsNil() {
 			return
 		}
+
 		expandEnvValue(value.Elem())
+
 		return
 	}
 
@@ -158,9 +162,11 @@ func expandEnvValue(value reflect.Value) {
 			expandEnvValue(value.Index(i))
 		}
 	case reflect.Map:
-		if value.Type().Key().Kind() != reflect.String || value.Type().Elem().Kind() != reflect.String {
+		if value.Type().Key().Kind() != reflect.String ||
+			value.Type().Elem().Kind() != reflect.String {
 			return
 		}
+
 		for _, key := range value.MapKeys() {
 			value.SetMapIndex(key, reflect.ValueOf(os.ExpandEnv(value.MapIndex(key).String())))
 		}
@@ -175,24 +181,31 @@ func applyDefaults(cfg *Config) {
 	if cfg.Run.Interval == 0 {
 		cfg.Run.Interval = time.Minute
 	}
+
 	if cfg.VictoriaMetrics.QueryPath == "" {
 		cfg.VictoriaMetrics.QueryPath = "/api/v1/query"
 	}
+
 	if cfg.VictoriaMetrics.Timeout == 0 {
 		cfg.VictoriaMetrics.Timeout = 15 * time.Second
 	}
+
 	if cfg.VictoriaMetrics.MetricName == "" {
 		cfg.VictoriaMetrics.MetricName = "sealos_registry_proxy_status"
 	}
+
 	if cfg.VictoriaMetrics.LatencyMetricName == "" {
 		cfg.VictoriaMetrics.LatencyMetricName = "sealos_registry_proxy_response_time_seconds"
 	}
+
 	if cfg.VictoriaMetrics.RegistryEndpointLabel == "" {
 		cfg.VictoriaMetrics.RegistryEndpointLabel = "endpoint"
 	}
+
 	if cfg.SwitchPolicy.TieBreaker == "" {
 		cfg.SwitchPolicy.TieBreaker = "order"
 	}
+
 	if cfg.DNS.TTL == 0 {
 		cfg.DNS.TTL = 60
 	}
@@ -202,29 +215,36 @@ func validate(cfg *Config) error {
 	if cfg.VictoriaMetrics.URL == "" {
 		return errors.New("victoriaMetrics.url is required")
 	}
+
 	if cfg.Registry.Endpoint == "" {
 		return errors.New("registry.endpoint is required")
 	}
+
 	switch cfg.SwitchPolicy.TieBreaker {
 	case "order":
 	case "latency":
 	default:
 		return fmt.Errorf("unsupported switchPolicy.tieBreaker %q", cfg.SwitchPolicy.TieBreaker)
 	}
+
 	if len(cfg.Targets) == 0 {
 		return errors.New("targets is required")
 	}
+
 	for _, target := range cfg.Targets {
 		if net.ParseIP(target.IP) == nil {
 			return fmt.Errorf("invalid target ip %q", target.IP)
 		}
 	}
+
 	if cfg.DNS.Provider == "" {
 		return errors.New("dns.provider is required")
 	}
+
 	if cfg.DNS.RecordName == "" {
 		return errors.New("dns.recordName is required")
 	}
+
 	switch cfg.DNS.Provider {
 	case "fake":
 		return nil
@@ -232,21 +252,26 @@ func validate(cfg *Config) error {
 		if cfg.Run.DryRun {
 			return nil
 		}
+
 		if cfg.DNS.AliDNS.RegionID == "" ||
 			cfg.DNS.AliDNS.AccessKeyID == "" ||
 			cfg.DNS.AliDNS.AccessKeySecret == "" ||
 			cfg.DNS.AliDNS.DomainName == "" {
-			return errors.New("alidns regionId, accessKeyId, accessKeySecret, and domainName are required")
+			return errors.New(
+				"alidns regionId, accessKeyId, accessKeySecret, and domainName are required",
+			)
 		}
 	case "cloudflare":
 		if cfg.Run.DryRun {
 			return nil
 		}
+
 		if cfg.DNS.Cloudflare.APIToken == "" || cfg.DNS.Cloudflare.ZoneID == "" {
 			return errors.New("cloudflare apiToken and zoneId are required")
 		}
 	default:
 		return fmt.Errorf("unsupported dns.provider %q", cfg.DNS.Provider)
 	}
+
 	return nil
 }

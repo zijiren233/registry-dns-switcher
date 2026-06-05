@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net"
 	"time"
 
@@ -91,6 +92,7 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("query api health: %w", err)
 	}
+
 	manifestSamples, err := s.metrics.Query(ctx, manifestQuery)
 	if err != nil {
 		return fmt.Errorf("query manifest health: %w", err)
@@ -100,19 +102,26 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 		toHealthSamples(apiSamples),
 		toHealthSamples(manifestSamples),
 	)
+
 	latencies, err := s.queryLatencies(ctx)
 	if err != nil {
 		return err
 	}
+
 	now := s.clock.Now()
 	s.observeHealth(toTargets(s.cfg.Targets), healthy, now)
 
 	if s.cfg.Run.DryRun {
-		target, err := switcher.SelectTargetWithPolicy(toTargets(s.cfg.Targets), healthy, s.selectionPolicy(latencies))
+		target, err := switcher.SelectTargetWithPolicy(
+			toTargets(s.cfg.Targets),
+			healthy,
+			s.selectionPolicy(latencies),
+		)
 		if err != nil {
 			slog.Warn("no healthy target found", "error", err)
 			return nil
 		}
+
 		slog.Info("selected healthy registry ip",
 			"record", s.cfg.DNS.RecordName,
 			"type", dnsRecordType(target.IP),
@@ -120,6 +129,7 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 			"priority", target.Priority,
 			"dryRun", true,
 		)
+
 		return nil
 	}
 
@@ -127,12 +137,20 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("read current dns record: %w", err)
 	}
-	target, current, ok := s.selectPolicyTarget(toTargets(s.cfg.Targets), healthy, latencies, currentValues, now)
+
+	target, current, ok := s.selectPolicyTarget(
+		toTargets(s.cfg.Targets),
+		healthy,
+		latencies,
+		currentValues,
+		now,
+	)
 	if !ok {
 		return nil
 	}
 
 	recordType := dnsRecordType(target.IP)
+
 	oppositeRecordType := oppositeDNSRecordType(recordType)
 	if currentValues[recordType] == target.IP && currentValues[oppositeRecordType] == "" {
 		slog.Info("dns record already points to selected ip",
@@ -140,6 +158,7 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 			"type", recordType,
 			"ip", target.IP,
 		)
+
 		return nil
 	}
 
@@ -153,7 +172,13 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 			"dryRun", false,
 		)
 
-		if err := s.dns.Upsert(ctx, s.cfg.DNS.RecordName, recordType, target.IP, s.cfg.DNS.TTL); err != nil {
+		if err := s.dns.Upsert(
+			ctx,
+			s.cfg.DNS.RecordName,
+			recordType,
+			target.IP,
+			s.cfg.DNS.TTL,
+		); err != nil {
 			return fmt.Errorf("upsert dns record: %w", err)
 		}
 	}
@@ -166,10 +191,12 @@ func (s *Switcher) Reconcile(ctx context.Context) error {
 			"selectedType", recordType,
 			"target", target.IP,
 		)
+
 		if err := s.dns.Delete(ctx, s.cfg.DNS.RecordName, oppositeRecordType); err != nil {
 			return fmt.Errorf("delete stale dns record: %w", err)
 		}
 	}
+
 	return nil
 }
 
@@ -180,8 +207,10 @@ func (s *Switcher) currentDNSValues(ctx context.Context) (map[string]string, err
 		if err != nil {
 			return nil, err
 		}
+
 		values[recordType] = current
 	}
+
 	return values, nil
 }
 
@@ -194,28 +223,37 @@ func (s *Switcher) queryLatencies(ctx context.Context) (map[string]float64, erro
 		s.cfg.VictoriaMetrics.LatencyMetricName,
 		s.latencyMatchers(),
 	)
+
 	samples, err := s.metrics.Query(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("query latency: %w", err)
 	}
+
 	return toLatencyMap(samples), nil
 }
 
-func (s *Switcher) observeHealth(targets []switcher.Target, healthy map[string]struct{}, now time.Time) {
+func (s *Switcher) observeHealth(
+	targets []switcher.Target,
+	healthy map[string]struct{},
+	now time.Time,
+) {
 	for _, target := range targets {
 		if !target.Enabled {
 			continue
 		}
+
 		_, isHealthy := healthy[target.IP]
 		if previous, exists := s.lastObservedState[target.IP]; exists && previous == isHealthy {
 			continue
 		}
+
 		s.lastObservedState[target.IP] = isHealthy
 		if isHealthy {
 			s.healthSince[target.IP] = now
 			delete(s.unhealthySince, target.IP)
 			continue
 		}
+
 		s.unhealthySince[target.IP] = now
 		delete(s.healthSince, target.IP)
 	}
@@ -230,7 +268,13 @@ func (s *Switcher) selectPolicyTarget(
 ) (switcher.Target, string, bool) {
 	target, err := switcher.SelectTargetWithPolicy(targets, healthy, s.selectionPolicy(latencies))
 	if err != nil {
-		slog.Warn("no healthy target found", "error", err, "current", selectedCurrentValue(currentValues))
+		slog.Warn(
+			"no healthy target found",
+			"error",
+			err,
+			"current",
+			selectedCurrentValue(currentValues),
+		)
 		return switcher.Target{}, "", false
 	}
 
@@ -248,9 +292,11 @@ func (s *Switcher) selectPolicyTarget(
 					"target", target.IP,
 					"healthyFor", s.cfg.SwitchPolicy.HealthyFor,
 				)
+
 				return switcher.Target{}, current, false
 			}
 		}
+
 		return target, current, true
 	}
 
@@ -260,15 +306,18 @@ func (s *Switcher) selectPolicyTarget(
 			s.unhealthySince[current] = now
 			since = now
 		}
+
 		if now.Sub(since) < s.cfg.SwitchPolicy.UnhealthyFor {
 			slog.Info("current target is unhealthy but waiting for unhealthy duration",
 				"current", current,
 				"target", target.IP,
 				"unhealthyFor", s.cfg.SwitchPolicy.UnhealthyFor,
 			)
+
 			return switcher.Target{}, current, false
 		}
 	}
+
 	return target, current, true
 }
 
@@ -281,31 +330,33 @@ func (s *Switcher) selectionPolicy(latencies map[string]float64) switcher.Select
 
 func (s *Switcher) registryMatchers() map[string]string {
 	matchers := make(map[string]string, len(s.cfg.VictoriaMetrics.Matchers)+4)
-	for key, value := range s.cfg.VictoriaMetrics.Matchers {
-		matchers[key] = value
-	}
+	maps.Copy(matchers, s.cfg.VictoriaMetrics.Matchers)
+
 	registryEndpointLabel := s.cfg.VictoriaMetrics.RegistryEndpointLabel
 	if registryEndpointLabel == "" {
 		registryEndpointLabel = "endpoint"
 	}
+
 	matchers[registryEndpointLabel] = s.cfg.Registry.Endpoint
 	if s.cfg.Registry.Info != "" {
 		matchers["info"] = s.cfg.Registry.Info
 	}
+
 	if s.cfg.Registry.Repository != "" {
 		matchers["repository"] = s.cfg.Registry.Repository
 	}
+
 	if s.cfg.Registry.Reference != "" {
 		matchers["reference"] = s.cfg.Registry.Reference
 	}
+
 	return matchers
 }
 
 func (s *Switcher) latencyMatchers() map[string]string {
 	matchers := s.registryMatchers()
-	for key, value := range s.cfg.VictoriaMetrics.LatencyMatchers {
-		matchers[key] = value
-	}
+	maps.Copy(matchers, s.cfg.VictoriaMetrics.LatencyMatchers)
+
 	return matchers
 }
 
@@ -316,11 +367,13 @@ func toHealthSamples(samples []metrics.Sample) []switcher.HealthSample {
 		if ip == "" {
 			continue
 		}
+
 		result = append(result, switcher.HealthSample{
 			IP:    ip,
 			Value: sample.Value,
 		})
 	}
+
 	return result
 }
 
@@ -331,11 +384,13 @@ func toLatencyMap(samples []metrics.Sample) map[string]float64 {
 		if ip == "" {
 			continue
 		}
+
 		current, exists := result[ip]
 		if !exists || sample.Value < current {
 			result[ip] = sample.Value
 		}
 	}
+
 	return result
 }
 
@@ -346,12 +401,14 @@ func toTargets(configs []config.TargetConfig) []switcher.Target {
 		if cfg.Enabled != nil {
 			enabled = *cfg.Enabled
 		}
+
 		targets = append(targets, switcher.Target{
 			IP:       cfg.IP,
 			Priority: cfg.Priority,
 			Enabled:  enabled,
 		})
 	}
+
 	return targets
 }
 
@@ -360,6 +417,7 @@ func dnsRecordType(ip string) string {
 	if parsed != nil && parsed.To4() == nil {
 		return "AAAA"
 	}
+
 	return "A"
 }
 
@@ -382,6 +440,7 @@ func currentForTarget(values map[string]string, target switcher.Target) string {
 	if values[recordType] != "" {
 		return values[recordType]
 	}
+
 	return selectedCurrentValue(values)
 }
 

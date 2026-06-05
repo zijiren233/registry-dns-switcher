@@ -17,12 +17,14 @@ func main() {
 	configPath := flag.String("config", "config.yaml", "path to config file")
 	once := flag.Bool("once", false, "run one reconciliation and exit")
 	dryRun := flag.Bool("dry-run", false, "select target IP without changing DNS")
+
 	flag.Parse()
 
 	var opts []config.LoadOption
 	if *once {
 		opts = append(opts, config.WithOnce(true))
 	}
+
 	if *dryRun {
 		opts = append(opts, config.WithDryRun(true))
 	}
@@ -47,6 +49,7 @@ func main() {
 			slog.Error("reconcile failed", "error", err)
 			os.Exit(1)
 		}
+
 		return
 	}
 

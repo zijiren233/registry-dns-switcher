@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -52,6 +53,7 @@ func NewClient(options Options) *Client {
 	if timeout <= 0 {
 		timeout = 15 * time.Second
 	}
+
 	queryPath := options.QueryPath
 	if queryPath == "" {
 		queryPath = "/api/v1/query"
@@ -90,6 +92,7 @@ func (c *Client) Query(ctx context.Context, query string) ([]Sample, error) {
 	if c.bearerToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.bearerToken)
 	}
+
 	if c.username != "" || c.password != "" {
 		req.SetBasicAuth(c.username, c.password)
 	}
@@ -108,8 +111,13 @@ func (c *Client) Query(ctx context.Context, query string) ([]Sample, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return nil, err
 	}
+
 	if parsed.Status != "success" {
-		return nil, fmt.Errorf("victoriametrics query failed: %s %s", parsed.ErrorType, parsed.Error)
+		return nil, fmt.Errorf(
+			"victoriametrics query failed: %s %s",
+			parsed.ErrorType,
+			parsed.Error,
+		)
 	}
 
 	samples := make([]Sample, 0, len(parsed.Data.Result))
@@ -117,14 +125,17 @@ func (c *Client) Query(ctx context.Context, query string) ([]Sample, error) {
 		if len(result.Value) < 2 {
 			continue
 		}
+
 		valueString, ok := result.Value[1].(string)
 		if !ok {
 			continue
 		}
+
 		value, err := strconv.ParseFloat(valueString, 64)
 		if err != nil {
 			continue
 		}
+
 		samples = append(samples, Sample{
 			Metric: result.Metric,
 			Value:  value,
@@ -136,9 +147,8 @@ func (c *Client) Query(ctx context.Context, query string) ([]Sample, error) {
 
 func RegistryStatusQuery(metricName string, matchers map[string]string, checkType string) string {
 	allMatchers := make(map[string]string, len(matchers)+1)
-	for key, value := range matchers {
-		allMatchers[key] = value
-	}
+	maps.Copy(allMatchers, matchers)
+
 	allMatchers["check_type"] = checkType
 
 	return metricName + "{" + formatMatchers(allMatchers) + "}"
@@ -153,6 +163,7 @@ func formatMatchers(matchers map[string]string) string {
 	for key := range matchers {
 		keys = append(keys, key)
 	}
+
 	for i := 1; i < len(keys); i++ {
 		for j := i; j > 0 && keys[j] < keys[j-1]; j-- {
 			keys[j], keys[j-1] = keys[j-1], keys[j]
@@ -163,5 +174,6 @@ func formatMatchers(matchers map[string]string) string {
 	for _, key := range keys {
 		parts = append(parts, fmt.Sprintf("%s=%q", key, matchers[key]))
 	}
+
 	return strings.Join(parts, ",")
 }

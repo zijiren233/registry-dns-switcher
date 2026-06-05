@@ -17,6 +17,7 @@ func TestHealthyIPsRequiresAPIAndManifest(t *testing.T) {
 	if _, exists := healthy["10.0.0.1"]; !exists {
 		t.Fatal("10.0.0.1 should be healthy")
 	}
+
 	if _, exists := healthy["10.0.0.2"]; exists {
 		t.Fatal("10.0.0.2 should not be healthy")
 	}
@@ -38,6 +39,7 @@ func TestSelectTargetUsesHighestPriority(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SelectTarget returned error: %v", err)
 	}
+
 	if selected.IP != "10.0.0.2" {
 		t.Fatalf("selected IP = %q, want 10.0.0.2", selected.IP)
 	}
@@ -64,6 +66,7 @@ func TestSelectTargetUsesLowestLatencyForPriorityTie(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SelectTargetWithPolicy returned error: %v", err)
 	}
+
 	if selected.IP != "10.0.0.2" {
 		t.Fatalf("selected IP = %q, want 10.0.0.2", selected.IP)
 	}
@@ -90,6 +93,7 @@ func TestSelectTargetKeepsOrderWhenPriorityAndLatencyTie(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SelectTargetWithPolicy returned error: %v", err)
 	}
+
 	if selected.IP != "10.0.0.1" {
 		t.Fatalf("selected IP = %q, want 10.0.0.1", selected.IP)
 	}

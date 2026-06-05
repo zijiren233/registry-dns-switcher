@@ -47,6 +47,7 @@ func NewCloudflareProvider(cfg config.CloudflareConfig) (*CloudflareProvider, er
 	if cfg.Proxied != nil {
 		proxied = *cfg.Proxied
 	}
+
 	return &CloudflareProvider{
 		apiToken: cfg.APIToken,
 		zoneID:   cfg.ZoneID,
@@ -55,14 +56,19 @@ func NewCloudflareProvider(cfg config.CloudflareConfig) (*CloudflareProvider, er
 	}, nil
 }
 
-func (p *CloudflareProvider) CurrentValue(ctx context.Context, recordName, recordType string) (string, error) {
+func (p *CloudflareProvider) CurrentValue(
+	ctx context.Context,
+	recordName, recordType string,
+) (string, error) {
 	record, err := p.findRecord(ctx, recordName, recordType)
 	if err != nil {
 		return "", err
 	}
+
 	if record.ID == "" {
 		return "", nil
 	}
+
 	return record.Content, nil
 }
 
@@ -84,6 +90,7 @@ func (p *CloudflareProvider) Upsert(
 		"proxied": p.proxied,
 	}
 	method := http.MethodPost
+
 	endpoint := fmt.Sprintf("%s/zones/%s/dns_records", cloudflareBaseURL, p.zoneID)
 	if record.ID != "" {
 		method = http.MethodPut
@@ -99,6 +106,7 @@ func (p *CloudflareProvider) Upsert(
 	if err != nil {
 		return err
 	}
+
 	p.setHeaders(req)
 
 	resp, err := p.client.Do(req)
@@ -111,9 +119,15 @@ func (p *CloudflareProvider) Upsert(
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return err
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 || !parsed.Success {
-		return fmt.Errorf("cloudflare upsert failed: status=%d errors=%v", resp.StatusCode, parsed.Errors)
+		return fmt.Errorf(
+			"cloudflare upsert failed: status=%d errors=%v",
+			resp.StatusCode,
+			parsed.Errors,
+		)
 	}
+
 	return nil
 }
 
@@ -122,6 +136,7 @@ func (p *CloudflareProvider) Delete(ctx context.Context, recordName, recordType 
 	if err != nil {
 		return err
 	}
+
 	if record.ID == "" {
 		return nil
 	}
@@ -135,6 +150,7 @@ func (p *CloudflareProvider) Delete(ctx context.Context, recordName, recordType 
 	if err != nil {
 		return err
 	}
+
 	p.setHeaders(req)
 
 	resp, err := p.client.Do(req)
@@ -147,9 +163,15 @@ func (p *CloudflareProvider) Delete(ctx context.Context, recordName, recordType 
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return err
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 || !parsed.Success {
-		return fmt.Errorf("cloudflare delete failed: status=%d errors=%v", resp.StatusCode, parsed.Errors)
+		return fmt.Errorf(
+			"cloudflare delete failed: status=%d errors=%v",
+			resp.StatusCode,
+			parsed.Errors,
+		)
 	}
+
 	return nil
 }
 
@@ -166,6 +188,7 @@ func (p *CloudflareProvider) findRecord(
 	if err != nil {
 		return cloudflareRecord{}, err
 	}
+
 	values := endpoint.Query()
 	values.Set("type", recordType)
 	values.Set("name", recordName)
@@ -175,6 +198,7 @@ func (p *CloudflareProvider) findRecord(
 	if err != nil {
 		return cloudflareRecord{}, err
 	}
+
 	p.setHeaders(req)
 
 	resp, err := p.client.Do(req)
@@ -187,6 +211,7 @@ func (p *CloudflareProvider) findRecord(
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
 		return cloudflareRecord{}, err
 	}
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 || !parsed.Success {
 		return cloudflareRecord{}, fmt.Errorf(
 			"cloudflare list failed: status=%d errors=%v",
@@ -194,9 +219,11 @@ func (p *CloudflareProvider) findRecord(
 			parsed.Errors,
 		)
 	}
+
 	if len(parsed.Result) == 0 {
 		return cloudflareRecord{}, nil
 	}
+
 	return cloudflareRecord{
 		ID:      parsed.Result[0].ID,
 		Content: parsed.Result[0].Content,

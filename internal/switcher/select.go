@@ -31,6 +31,7 @@ func HealthyIPs(apiSamples, manifestSamples []HealthSample) map[string]struct{} 
 			healthy[ip] = struct{}{}
 		}
 	}
+
 	return healthy
 }
 
@@ -44,18 +45,22 @@ func SelectTargetWithPolicy(
 	policy SelectionPolicy,
 ) (Target, error) {
 	var selected Target
+
 	found := false
 
 	for _, target := range targets {
 		if !target.Enabled {
 			continue
 		}
+
 		if net.ParseIP(target.IP) == nil {
 			return Target{}, fmt.Errorf("invalid target IP %q", target.IP)
 		}
+
 		if _, exists := healthy[target.IP]; !exists {
 			continue
 		}
+
 		if !found || preferTarget(target, selected, policy) {
 			selected = target
 			found = true
@@ -63,8 +68,9 @@ func SelectTargetWithPolicy(
 	}
 
 	if !found {
-		return Target{}, fmt.Errorf("no healthy target found")
+		return Target{}, errors.New("no healthy target found")
 	}
+
 	return selected, nil
 }
 
@@ -72,21 +78,26 @@ func preferTarget(candidate, selected Target, policy SelectionPolicy) bool {
 	if candidate.Priority > selected.Priority {
 		return true
 	}
+
 	if candidate.Priority < selected.Priority {
 		return false
 	}
+
 	if policy.TieBreaker != "latency" {
 		return false
 	}
 
 	candidateLatency, candidateOK := policy.Latencies[candidate.IP]
+
 	selectedLatency, selectedOK := policy.Latencies[selected.IP]
 	if candidateOK && !selectedOK {
 		return true
 	}
+
 	if candidateOK && selectedOK && candidateLatency < selectedLatency {
 		return true
 	}
+
 	return false
 }
 
@@ -97,5 +108,6 @@ func okIPs(samples []HealthSample) map[string]struct{} {
 			result[sample.IP] = struct{}{}
 		}
 	}
+
 	return result
 }
