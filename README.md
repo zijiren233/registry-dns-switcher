@@ -60,6 +60,36 @@ dns:
 
 The `fake` provider keeps records in memory and logs every update. It is useful for testing the full VictoriaMetrics query and priority-selection flow without touching external DNS.
 
+## Switching Scenarios
+
+Assume the configured targets are:
+
+```yaml
+targets:
+  - ip: 10.0.0.12
+    priority: 100
+  - ip: 10.0.0.13
+    priority: 90
+  - ip: 10.0.0.14
+    priority: 80
+```
+
+An IP is eligible only when both health checks are successful:
+
+```text
+sealos_registry_proxy_status{check_type="api",ip="<ip>"} == 1
+sealos_registry_proxy_status{check_type="manifest",ip="<ip>"} == 1
+```
+
+Common outcomes:
+
+- Current DNS points to `10.0.0.13`, and `10.0.0.13` becomes unhealthy. If `10.0.0.12` is healthy, the service waits for `switchPolicy.unhealthyFor`, then updates DNS to `10.0.0.12` because it is the highest-priority healthy target.
+- Current DNS points to `10.0.0.13`, and `10.0.0.13` stays healthy. If `10.0.0.12` is also healthy, the service waits for `switchPolicy.healthyFor`, then switches back to `10.0.0.12` because it has higher priority.
+- Current DNS points to `10.0.0.12`, and `10.0.0.12` is healthy. The service keeps DNS unchanged because the current record already points to the selected target.
+- Current DNS points to `10.0.0.12`, and all configured targets are unhealthy. The service keeps DNS unchanged and logs `no healthy target found`.
+- Two healthy targets have the same `priority`. The service uses `switchPolicy.tieBreaker`: `order` picks the first target in `targets`, and `latency` picks the lower-latency target from `sealos_registry_proxy_response_time_seconds`.
+- The selected target is IPv4. The service writes the A record and removes a stale AAAA record for the same `dns.recordName`; IPv6 selection does the symmetric cleanup.
+
 `switchPolicy.tieBreaker` controls how targets with the same `priority` are selected:
 
 ```yaml
